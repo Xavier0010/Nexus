@@ -1,8 +1,12 @@
 # Environment variables
 .env
+*.bat
 
 # Data files
 *.csv
+
+# Logs
+*.json
 
 # Jupyter
 .ipynb_checkpoints/

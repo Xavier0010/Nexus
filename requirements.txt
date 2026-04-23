@@ -5,4 +5,4 @@ scikit-learn
 pandas
 numpy
 groq
-python-dotenv
+pymysql

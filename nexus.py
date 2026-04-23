@@ -1,25 +1,35 @@
-# Libraries
-import os
+# - Libraries -
 import json
-import joblib
-import numpy as np
 import pandas as pd
-from groq import Groq
-from pathlib import Path
-from fastapi import FastAPI
-from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import Optional, List
-from feature_engineer import build_features
+from fastapi import FastAPI, HTTPException
 
-app = FastAPI()
+from detector import AnomalyDetector
+from config import ANOMALY_LOG_PATH, FAILED_PAYLOAD_PATH
+from engine import generate_recommendation
 
-@app.get("/")
-def root():
-    return {"message": "Welcome to Nexus for Asentinel"}
+# - Helper Function -
+def _log_failed_payload(payload_json: str):
+    try:
+        with open(str(FAILED_PAYLOAD_PATH), "a") as f:
+            f.write(payload_json + "\n")
+    except Exception:
+        pass
 
-# Anomaly Detector endpoint
-class HealthCheckPayload(BaseModel):
+
+# - API & Detector -  
+app = FastAPI(
+    title="Nexus — Asentinel Anomaly Detector",
+    version="1.2.0",
+    description="Anomaly detection API for API health monitoring",
+)
+
+detector = AnomalyDetector()
+
+
+# Payload Schemas
+class HealthCheckRecord(BaseModel):
     id_log_monitor: int
     id_aplikasi: int
     id_service: Optional[float] = None
@@ -32,131 +42,88 @@ class HealthCheckPayload(BaseModel):
     updated_at: str
 
 class BatchPayload(BaseModel):
-    records: List[HealthCheckPayload]
-    
-model = joblib.load("models/model.pkl")
-scaler = joblib.load("models/scaler.pkl")
-threshold = joblib.load("models/threshold.pkl")
+    records: List[HealthCheckRecord]
 
-ANOMALY_LOG_PATH = "logs/anomaly_log.json"
-FAILED_PAYLOAD_PATH = "logs/failed_payloads.jsonl"
-Path("logs").mkdir(exist_ok=True)
 
-@app.post("/predict")
-async def predict(data: BatchPayload):
+# - Endpoints -
+@app.get("/")
+def root():
+    return {
+        "message": "Nexus — Asentinel Anomaly Detector",
+        "endpoints": {
+            "POST /detect": "Single record detection",
+            "POST /detect/batch": "Batch detection",
+            "GET /recommend": "Generate recommendations from the latest summary"
+        },
+    }
+
+# Recommendation Engine
+@app.get("/recommend")
+async def get_recommendation():
     try:
-        df = pd.DataFrame([r.dict() for r in data.records])
-        original_df, preproc_df = build_features(df)
-        
-        scaled = scaler.transform(preproc_df)
-        scores = model.score_samples(scaled)
-        is_anomalies = scores < threshold
-
-        if os.path.exists(ANOMALY_LOG_PATH):
-            with open(ANOMALY_LOG_PATH, "r") as f:
-                anomaly_log = json.load(f)
-        else:
-            anomaly_log = []
-
-        results = []
-        for i, (score, is_anomaly) in enumerate(zip(scores, is_anomalies)):
-            row = original_df.iloc[i]
-            preproc_row = preproc_df.iloc[i]
-            is_anomaly = bool(is_anomaly)
-
-            if is_anomaly:
-                anomaly_log.append({
-                    "id_log_monitor": int(row['id_log_monitor']),
-                    "id_aplikasi": int(row['id_aplikasi']),
-                    "id_service": str(row['id_service']),
-                    "url": str(row['url']),
-                    "status": int(row['status']),
-                    "http_status_code": int(row['http_status_code']),
-                    "response_time_ms": int(row['response_time_ms']),
-                    "anomaly_score": round(float(score), 5),
-                    "rolling_fail_rate": round(float(preproc_row['rolling_fail_rate']), 5),
-                    "rolling_avg_response_time": round(float(preproc_row['rolling_avg_response_time']), 5),
-                    "consecutive_failures": int(preproc_row['consecutive_failures']),
-                    "checked_at": str(row['checked_at']),
-                })
-
-            results.append({
-                "id_aplikasi": int(row['id_aplikasi']),
-                "id_service": row['id_service'],
-                "url": row['url'],
-                "is_anomaly": is_anomaly,
-                "anomaly_score": round(float(score), 5)
-            })
-
-        with open(ANOMALY_LOG_PATH, "w") as f:
-            json.dump(anomaly_log, f, indent=2)
-
-        return {
-            "total": len(results),
-            "anomalies_found": sum(1 for r in results if r['is_anomaly']),
-            "threshold": round(float(threshold), 5),
-            "result": results
-        }
-
+        result = generate_recommendation()
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+        return result
     except Exception as e:
-        with open("logs/failed_payloads.jsonl", "a") as f:
-            f.write(data.model_dump_json() + "\n")
-        return {"error": str(e), "is_anomaly": None}
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/clear-anomaly-log")
+# Detect single record
+@app.post("/detect")
+async def detect_single(data: HealthCheckRecord):
+    try:
+        result = detector.detect_single(data.model_dump())
+        return {
+            "threshold": round(float(detector.threshold), 5),
+            **result,
+        }
+    except Exception as e:
+        _log_failed_payload(data.model_dump_json())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Batch detection
+@app.post("/detect/batch")
+async def detect_batch(data: BatchPayload):
+    try:
+        df = pd.DataFrame([r.model_dump() for r in data.records])
+        result = detector.detect(df)
+        return result
+    except Exception as e:
+        _log_failed_payload(data.model_dump_json())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Reload model
+@app.post("/reload-model")
+async def reload_model():
+    try:
+        detector.reload()
+        return {
+            "message": "Model reloaded.",
+            "threshold": round(float(detector.threshold), 5),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Clear anomaly log
+@app.delete("/logs/anomalies")
 async def clear_anomaly_log():
     try:
-        with open(ANOMALY_LOG_PATH, "w") as f:
+        with open(str(ANOMALY_LOG_PATH), "w") as f:
             json.dump([], f)
         return {"message": "Anomaly log cleared."}
     except Exception as e:
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/clear-failed-payloads")
+
+# Clear failed payloads log
+@app.delete("/logs/failed")
 async def clear_failed_payloads():
     try:
-        with open(FAILED_PAYLOAD_PATH, "w") as f:
-            json.dump([], f)
+        with open(str(FAILED_PAYLOAD_PATH), "w") as f:
+            f.write("")
         return {"message": "Failed payloads cleared."}
     except Exception as e:
-        return {"error": str(e)}
-
-# Recommendation endpoint
-
-# def recommend(data: dict):
-#     response = client.chat.completions.create(
-#         model="llama-3.3-70b-versatile",
-#         messages=[
-#             {
-#                 "role": "system",
-#                 "content": (
-#                     "Kamu adalah sistem monitoring API profesional. "
-#                     "Tugasmu adalah menganalisis anomali yang terdeteksi dan memberikan rekomendasi teknis yang singkat, jelas, dan actionable. "
-#                     "Jawab hanya dengan 3 langkah remediasi dalam format bernomor. "
-#                     "Tidak perlu basa-basi atau penjelasan panjang."
-#                 )
-#             },
-#             {
-#                 "role": "user",
-#                 "content": (
-#                     f"Anomali terdeteksi pada API monitoring dengan detail berikut:\n"
-#                     f"List API affected: {api_affected}"
-#                     f"Berikan 3 langkah remediasi teknis yang harus segera dilakukan."
-#                 )
-#             }
-#         ],
-
-#         temperature=0.3,
-#         max_tokens=300
-#     )
-
-#     raw = response.choices[0].message.content
-#     steps = [step.strip() for step in raw.split('\n') if step.strip()]
-#     return steps
-
-# load_dotenv()
-# client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
-# @app.post("/recommend")
-# async def recommend(data: HealthCheckPayload):
-    
+        raise HTTPException(status_code=500, detail=str(e))

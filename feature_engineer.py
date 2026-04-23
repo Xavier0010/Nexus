@@ -1,3 +1,4 @@
+# - Libraries -
 import pandas as pd
 import numpy as np
 
@@ -13,7 +14,8 @@ features = [
 ]
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
-    # Functions
+
+    # - Functions -
     def http_risk(code: int) -> int:
         if 200 <= code < 300: return 0
         elif 400 <= code < 500: return 1
@@ -28,7 +30,8 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
             result.append(count)
         return pd.Series(result, index=series.index)
 
-    # Feature engineering
+
+    # - Feature Engineering -
     df = df.copy()
     df = df.sort_values(['id_aplikasi', 'checked_at']).reset_index(drop=True)
 

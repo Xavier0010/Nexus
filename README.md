@@ -1,8 +1,8 @@
-# Nexus — Anomaly Detector for Asentinel
-
 <div align="center">
-  <img src="Nexus%20Logo.jpeg" alt="Nexus Logo" width="300">
+  <img src="Nexus_Logo.png" alt="Nexus Logo" width="300">
 </div>
+
+<h1 align="center">Nexus - Anomaly Detector for Asentinel</h1>
 
 Detects anomalies in API health monitoring data using **Isolation Forest**. Built to work with Asentinel's `log_monitor` table.
 

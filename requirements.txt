@@ -6,3 +6,4 @@ pandas
 numpy
 groq
 pymysql
+python-dotenv

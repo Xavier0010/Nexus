@@ -8,14 +8,14 @@
   <a href="README.md">English</a> | <strong>Indonesia</strong>
 </div>
 
-Mendeteksi anomali pada data pemantauan kesehatan API menggunakan **Isolation Forest**. Dibangun untuk bekerja dengan tabel `log_monitor` Asentinel.
+Mendeteksi anomali pada data pemantauan kesehatan API menggunakan **Isolation Forest**.
 
 ## Cara Kerjanya
 
 1. Data pemantauan mentah masuk (dari CSV atau database)
 2. Fitur direkayasa dari data mentah (`feature_engineer.py`)
 3. Model Isolation Forest menilai setiap catatan (record)
-4. Jika skor catatan berada di bawah ambang batas (threshold), catatan tersebut mendapat **strike** — tetapi belum ditandai sebagai anomali
+4. Jika skor catatan berada di bawah ambang batas (threshold), catatan tersebut mendapat **strike**, tetapi belum ditandai sebagai anomali
 5. Hanya setelah **3 strike berturut-turut**, endpoint tersebut dikonfirmasi sebagai anomali dan dicatat
 6. Untuk pulih, endpoint harus melewati **3 pemeriksaan normal berturut-turut**
 7. Setiap 12 jam (selama pelatihan ulang/retraining), `summarizer.py` mengelompokkan anomali ke dalam ringkasan dan membersihkan log.
@@ -35,6 +35,7 @@ Sistem strike ini mencegah alarm palsu akibat lonjakan lag sementara. Dapat diko
 | `batch_detector.py` | Deteksi batch dari CSV (dev) atau polling DB (prod) |
 | `summarizer.py` | Mengelompokkan log anomali 12 jam menjadi ringkasan JSON |
 | `engine.py` | Berinteraksi dengan Groq API (LLM) untuk menghasilkan rekomendasi |
+| `run.py` | Menu CLI interaktif untuk menjalankan bagian mana pun dari sistem dengan mudah |
 
 ## Persiapan Setup
 
@@ -45,6 +46,16 @@ pip install -r requirements.txt
 ```
 
 ## Penggunaan
+
+Cara termudah untuk menjalankan bagian mana pun dari proyek ini adalah menggunakan menu CLI interaktif:
+
+```bash
+python run.py
+```
+
+Menu ini memungkinkan Anda untuk dengan mudah memilih dan menjalankan deteksi batch, deteksi tunggal interaktif, memulai server API, atau melatih ulang model.
+
+### Eksekusi Manual
 
 **Mulai server API (PENTING: gunakan file `.env` agar Python dapat membaca API key):**
 ```bash

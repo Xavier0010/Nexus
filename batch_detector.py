@@ -33,7 +33,7 @@ def detect_csv(detector: AnomalyDetector):
         print(f"\nBatch: {batch_time} ({len(batch_df)} rows)")
 
         start = time.perf_counter()
-        result = detector.detect(batch_df)
+        result = detector.detect_batch(batch_df)
         elapsed = time.perf_counter() - start
 
         total_anomalies += result["anomalies_found"]
@@ -70,7 +70,7 @@ def detect_database(detector: AnomalyDetector):
             else:
                 print(f"[detector] Found {len(df)} new records (id > {last_id})")
                 
-                result = detector.detect(df)
+                result = detector.detect_batch(df)
                 last_id = max(int(df["id_log_monitor"].max()), last_id)
 
                 print(f"[detector] Total: {result['total']} | Anomalies: {result['anomalies_found']}")

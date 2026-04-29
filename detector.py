@@ -70,7 +70,7 @@ class AnomalyDetector:
             "recovery_count": state["recovery_count"],
         }
 
-    def detect(self, df: pd.DataFrame, log_anomalies: bool = True) -> dict:
+    def detect_batch(self, df: pd.DataFrame, log_anomalies: bool = True) -> dict:
         # Feature engineering
         original_df, feature_df = build_features(df)
 
@@ -136,7 +136,7 @@ class AnomalyDetector:
 
     def detect_single(self, record: dict, log_anomalies: bool = True) -> dict:
         df = pd.DataFrame([record])
-        batch_result = self.detect(df, log_anomalies=log_anomalies)
+        batch_result = self.detect_batch(df, log_anomalies=log_anomalies)
         return batch_result["results"][0]
 
     def _append_anomaly_log(self, new_anomalies: list):

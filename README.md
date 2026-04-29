@@ -8,14 +8,14 @@
   <strong>English</strong> | <a href="README_INDONESIAN.md">Indonesia</a>
 </div>
 
-Detects anomalies in API health monitoring data using **Isolation Forest**. Built to work with Asentinel's `log_monitor` table.
+Detects anomalies in API health monitoring data using **Isolation Forest**.
 
 ## How It Works
 
 1. Raw monitoring data comes in (from CSV or database)
 2. Features are engineered from the raw data (`feature_engineer.py`)
 3. The Isolation Forest model scores each record
-4. If a record scores below the threshold, it gets a **strike** — but it's not flagged yet
+4. If a record scores below the threshold, it gets a **strike**, but it's not flagged yet
 5. Only after **3 consecutive strikes**, the endpoint is confirmed as an anomaly and logged
 6. To recover, the endpoint must pass **3 consecutive normal checks**
 7. Every 12 hours (during retraining), `summarizer.py` groups the anomalies into a summary and clears the log.
@@ -35,6 +35,7 @@ This strike system prevents false alarms from temporary lag spikes. Configurable
 | `batch_detector.py` | Batch detection from CSV (dev) or DB polling (prod) |
 | `summarizer.py` | Groups the 12-hour anomaly logs into a summary JSON |
 | `engine.py` | Interacts with the Groq API (LLM) to generate recommendations |
+| `run.py` | Interactive CLI menu to run any part of the system easily |
 
 ## Setup
 
@@ -45,6 +46,16 @@ pip install -r requirements.txt
 ```
 
 ## Usage
+
+The easiest way to run any part of the project is using the interactive CLI menu:
+
+```bash
+python run.py
+```
+
+This menu allows you to easily select and run batch detection, interactive single detection, start the API server, or retrain the model.
+
+### Manual Execution
 
 **Start the API server (IMPORTANT: pass the `.env` file so Python can read the API key):**
 ```bash

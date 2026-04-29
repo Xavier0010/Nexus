@@ -7,8 +7,8 @@ from config import LOG_DIR, LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS
 SUMMARY_DIR = LOG_DIR / "summaries"
 
 # Initialize Groq client
-# Ensure that API_KEY is available in the environment variables
-api_key = os.getenv("API_KEY")
+# Ensure that GROQ_API_KEY is available in the environment variables
+api_key = os.getenv("GROQ_API_KEY")
 client = Groq(api_key=api_key) if api_key else None
 
 def get_latest_summary():

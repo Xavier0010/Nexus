@@ -87,7 +87,7 @@ async def detect_single(data: HealthCheckRecord):
 async def detect_batch(data: BatchPayload):
     try:
         df = pd.DataFrame([r.model_dump() for r in data.records])
-        result = detector.detect(df)
+        result = detector.detect_batch(df)
         return result
     except Exception as e:
         _log_failed_payload(data.model_dump_json())

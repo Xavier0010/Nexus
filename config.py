@@ -1,6 +1,10 @@
 # - Libraries -
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # - Path(s) -
 BASE_DIR = Path(__file__).resolve().parent
@@ -18,7 +22,7 @@ FAILED_PAYLOAD_PATH = LOG_DIR / "failed_payloads.jsonl"
 # - Database -
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
-    "port": int(os.getenv("DB_PORT", 3306)),
+    "port": int(os.getenv("DB_PORT", "3306") or 3306),
     "user": os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASS", ""),
     "database": os.getenv("DB_NAME", "Asentinel"),
@@ -57,10 +61,8 @@ MODEL_PARAMS = {
 # Threshold = Nth percentile of training anomaly scores
 THRESHOLD_PERCENTILE = 10
 
-# - Strike Confirmation -
-# How many consecutive anomaly detections before flagging as confirmed anomaly
+# - Strike & Recover Confirmation -
 CONFIRM_STRIKES = 3
-# How many consecutive normal detections before clearing an anomaly
 RECOVER_STRIKES = 3
 
 # - Model Retraining Interval -
@@ -76,9 +78,9 @@ RETRAIN_SCHEDULE = {
 FETCH_INTERVAL_SECONDS = 30
 
 # - LLM Engine Configuration -
-LLM_MODEL = "llama-3.3-70b-versatile"
-LLM_TEMPERATURE = 0.3
-LLM_MAX_TOKENS = 500
+LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
+LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3") or 0.3)
+LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "500") or 500)
 
 # - CSV Training Data (without DB) -
 TRAINING_CSV = DATA_DIR / "log_monitor.csv"

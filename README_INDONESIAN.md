@@ -5,7 +5,7 @@
 <h1 align="center">Nexus - Anomaly Detector for Asentinel</h1>
 
 <div align="center">
-  <a href="README_ENGLISH.md">English</a> | <strong>Indonesia</strong>
+  <a href="README.md">English</a> | <strong>Indonesia</strong>
 </div>
 
 Mendeteksi anomali pada data pemantauan kesehatan API menggunakan **Isolation Forest**. Dibangun untuk bekerja dengan tabel `log_monitor` Asentinel.

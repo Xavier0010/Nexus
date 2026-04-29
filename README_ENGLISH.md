@@ -4,6 +4,10 @@
 
 <h1 align="center">Nexus - Anomaly Detector for Asentinel</h1>
 
+<div align="center">
+  <strong>English</strong> | <a href="README_INDONESIAN.md">Indonesia</a>
+</div>
+
 Detects anomalies in API health monitoring data using **Isolation Forest**. Built to work with Asentinel's `log_monitor` table.
 
 ## How It Works

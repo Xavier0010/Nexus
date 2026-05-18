@@ -1,44 +1,55 @@
 import time
 import argparse
 import pandas as pd
-
-from detector import AnomalyDetector
+from sqlalchemy import text
+from anomaly_detector.detector import AnomalyDetector
 from config import (
     TRAINING_CSV,
     DB_ENABLED,
     ENGINE,
     FETCH_QUERY,
     FETCH_INTERVAL_SECONDS,
+    NOTIFY_BATCH_LIMIT,
+    WEBHOOK_WARNING_INTERVAL_SECONDS,
 )
-from sqlalchemy import text
 
-# Telegram notifier — imported lazily so missing credentials never crash the detector
 try:
-    from webhook.notifier import notify_anomalies
+    from webhook.notifier import send_critical, queue_warning, flush_warnings
+    from webhook.priority_classifier import classify
     _NOTIFIER_AVAILABLE = True
 except ImportError:
     _NOTIFIER_AVAILABLE = False
 
 
-# Max anomalies to notify per batch; batches above this are treated as
-# historical/bulk data and silently skipped (prevents spam on first DB fetch).
-_NOTIFY_BATCH_LIMIT = 5
-
-
-def _notify(anomalies: list, label: str = "") -> None:
-    """Send Telegram alerts if the notifier is configured and batch is within limit."""
+def route_anomalies(anomalies: list, label: str = "") -> None:
+    """
+    Route confirmed anomaly entries by priority:
+      - CRITICAL → send_critical() fires immediately to Telegram
+      - WARNING  → queue_warning() adds to 3-min digest queue
+    Skips routing entirely if count exceeds NOTIFY_BATCH_LIMIT (historical data guard).
+    """
     if not _NOTIFIER_AVAILABLE:
         return
+
     count = len(anomalies)
-    if count > _NOTIFY_BATCH_LIMIT:
-        print(f"  [notifier] Skipped — {count} anomalies exceeds batch limit ({_NOTIFY_BATCH_LIMIT}). Likely historical data.")
+    if count > NOTIFY_BATCH_LIMIT:
+        print(f"[notifier] Skipped — {count} anomalies exceeds batch limit ({NOTIFY_BATCH_LIMIT}). Likely historical data.")
         return
-    sent = notify_anomalies(anomalies)
-    if sent:
-        print(f"  [notifier] Sent {sent} Telegram alert(s). {label}")
 
+    critical = [e for e in anomalies if classify(e) == "critical"]
+    warnings  = [e for e in anomalies if classify(e) == "warning"]
 
-# ─── CSV Mode (dev / offline) ────────────────────────────────
+    if critical:
+        sent = send_critical(critical)
+        if sent:
+            print(f"[notifier] 🔴 CRITICAL alert sent ({len(critical)} entr{'y' if len(critical) == 1 else 'ies'}). {label}")
+
+    for entry in warnings:
+        queue_warning(entry)
+
+    if warnings:
+        print(f"[notifier] ⚠️  {len(warnings)} warning(s) queued for digest. {label}")
+
 
 def detect_csv(detector: AnomalyDetector):
     df = pd.read_csv(str(TRAINING_CSV))
@@ -62,7 +73,7 @@ def detect_csv(detector: AnomalyDetector):
         elapsed = time.perf_counter() - start
 
         total_anomalies += result["anomalies_found"]
-        print(f"  Total: {result['total']} | Anomalies: {result['anomalies_found']} | Time: {elapsed:.3f}s")
+        print(f"Total: {result['total']} | Anomalies: {result['anomalies_found']} | Time: {elapsed:.3f}s")
 
         anomaly_entries = []
         for r in result["results"]:
@@ -70,28 +81,32 @@ def detect_csv(detector: AnomalyDetector):
                 status_str = "UP" if r["status"] == 1 else "DOWN"
                 name_str = r.get("nama") or f"ID:{r['id_aplikasi']}"
                 service_str = "Monolithic" if r["id_service"] == "monolithic" else str(r["id_service"]).split(".")[0]
-                print(f"  [ 🚨 ANOMALY ] {name_str} | Service: {service_str} | URL: {r['url']}")
-                print(f"  [ ℹ️  INFO ] Status: {status_str} | HTTP: {r['http_status_code']} | RT: {r['response_time_ms']}ms | Score: {r['anomaly_score']}\n")
+                print(f"[ 🚨 ANOMALY ] {name_str} | Service: {service_str} | URL: {r['url']}")
+                print(f"[ ℹ️  INFO ] Status: {status_str} | HTTP: {r['http_status_code']} | RT: {r['response_time_ms']}ms | Score: {r['anomaly_score']}\n")
                 anomaly_entries.append(r)
+        route_anomalies(anomaly_entries, label=f"(batch {batch_time})")
 
-        # CSV mode: skip notification if the batch has too many anomalies
-        # (entire CSV is treated as historical data in that case)
-        _notify(anomaly_entries, label=f"(batch {batch_time})")
+    # Drain any queued warnings after CSV run completes
+    if _NOTIFIER_AVAILABLE:
+        sent = flush_warnings()
+        if sent:
+            print("[notifier] ⚠️  Warning digest sent (end of CSV run).")
 
     print(f"\n{'='*50}")
     print(f"Done. Total anomalies detected: {total_anomalies}")
 
 
-# ─── DB Polling Mode (prod) ──────────────────────────────────
-
 def detect_database(detector: AnomalyDetector):
     if not DB_ENABLED:
-        print("[detector] DB_ENABLED is False — use CSV mode instead.")
+        print("[detector] DB_ENABLED is False, use CSV mode instead.")
         return
 
     last_id = 0
     is_first_fetch = True
+    _last_flush = time.time()
+
     print(f"[detector] Starting DB poll loop (every {FETCH_INTERVAL_SECONDS}s)")
+    print(f"[notifier] Warning digest interval: {WEBHOOK_WARNING_INTERVAL_SECONDS}s")
 
     while True:
         try:
@@ -117,20 +132,28 @@ def detect_database(detector: AnomalyDetector):
                             status_str = "UP" if r["status"] == 1 else "DOWN"
                             name_str = r.get("nama") or f"ID:{r['id_aplikasi']}"
                             service_str = "Monolithic" if r["id_service"] == "monolithic" else str(r["id_service"]).split(".")[0]
-                            print(f"  [ 🚨 ANOMALY ] {name_str} | Service: {service_str} | URL: {r['url']}")
-                            print(f"  [ ℹ️  INFO ] Status: {status_str} | HTTP: {r['http_status_code']} | RT: {r['response_time_ms']}ms | Score: {r['anomaly_score']}")
+                            print(f"[ 🚨 ANOMALY ] {name_str} | Service: {service_str} | URL: {r['url']}")
+                            print(f"[ ℹ️  INFO ] Status: {status_str} | HTTP: {r['http_status_code']} | RT: {r['response_time_ms']}ms | Score: {r['anomaly_score']}")
 
-                # First fetch always pulls ALL historical data — skip notification
-                # to avoid flooding the chat with hundreds of old anomalies.
                 if is_first_fetch:
-                    print(f"  [notifier] Skipped first fetch ({result['anomalies_found']} anomalies — historical baseline).")
+                    print(f"[notifier] Skipped first fetch ({result['anomalies_found']} anomalies).")
                 else:
-                    _notify(anomaly_entries)
+                    route_anomalies(anomaly_entries)
 
                 is_first_fetch = False
 
         except Exception as e:
             print(f"[detector] Error: {e}")
+
+        # 3-minute warning digest flush
+        now = time.time()
+        if _NOTIFIER_AVAILABLE and (now - _last_flush) >= WEBHOOK_WARNING_INTERVAL_SECONDS:
+            sent = flush_warnings()
+            if sent:
+                print("[notifier] ⚠️  Warning digest sent.")
+            else:
+                print(f"[notifier] No warnings queued (next digest in {WEBHOOK_WARNING_INTERVAL_SECONDS}s).")
+            _last_flush = now
 
         time.sleep(FETCH_INTERVAL_SECONDS)
 

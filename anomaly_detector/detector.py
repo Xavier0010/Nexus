@@ -1,22 +1,19 @@
-# - Libraries -
 import json
 import joblib
 import numpy as np
 import pandas as pd
 from datetime import datetime
-
-from feature_engineer import build_features
+from anomaly_detector.feature_engineer import build_features
 from config import (
     MODEL_PATH,
     SCALER_PATH,
     THRESHOLD_PATH,
     ANOMALY_LOG_PATH,
     CONFIRM_STRIKES,
-    RECOVER_STRIKES,
+    RECOVER_STRIKES
 )
 
 
-# - Anomaly Detector Class -
 class AnomalyDetector:
 
     def __init__(self):
@@ -26,18 +23,24 @@ class AnomalyDetector:
         self._state = {}
         self._load_model()
 
+
     def _load_model(self):
         self.model = joblib.load(str(MODEL_PATH))
         self.scaler = joblib.load(str(SCALER_PATH))
         self.threshold = joblib.load(str(THRESHOLD_PATH))
 
+
     def reload(self):
         self._load_model()
+
 
     def _get_endpoint_key(self, row):
         return (int(row["id_aplikasi"]), str(row["url"]))
 
+
     def _update_state(self, key, raw_anomaly: bool) -> dict:
+        confirmed = False
+        
         if key not in self._state:
             self._state[key] = {
                 "status": "normal",
@@ -46,7 +49,6 @@ class AnomalyDetector:
             }
 
         state = self._state[key]
-        confirmed = False
 
         if raw_anomaly:
             state["strike_count"] += 1
@@ -63,6 +65,7 @@ class AnomalyDetector:
                 state["status"] = "normal"
                 confirmed = True
 
+
         return {
             "status": state["status"],
             "confirmed": confirmed,
@@ -70,16 +73,13 @@ class AnomalyDetector:
             "recovery_count": state["recovery_count"],
         }
 
-    def detect_batch(self, df: pd.DataFrame, log_anomalies: bool = True) -> dict:
-        # Feature engineering
-        original_df, feature_df = build_features(df)
 
-        # Scale + score
+    def detect_batch(self, df: pd.DataFrame, log_anomalies: bool = True) -> dict:
+        original_df, feature_df = build_features(df)
         scaled = self.scaler.transform(feature_df)
         scores = self.model.score_samples(scaled)
         raw_anomalies = scores < self.threshold
 
-        # Build results
         results = []
         anomalies_to_log = []
 
@@ -91,7 +91,6 @@ class AnomalyDetector:
             key = self._get_endpoint_key(row)
             state = self._update_state(key, raw_anomaly)
 
-            # is_anomaly reflects confirmed state, not raw score
             is_confirmed_anomaly = state["status"] == "anomaly"
 
             entry = {
@@ -113,7 +112,6 @@ class AnomalyDetector:
 
             results.append(entry)
 
-            # Log every record where the endpoint is in confirmed anomaly state
             if is_confirmed_anomaly:
                 anomaly_entry = {
                     **entry,
@@ -124,7 +122,6 @@ class AnomalyDetector:
                 }
                 anomalies_to_log.append(anomaly_entry)
 
-        # Log anomalies
         if log_anomalies and anomalies_to_log:
             self._append_anomaly_log(anomalies_to_log)
 
@@ -135,10 +132,12 @@ class AnomalyDetector:
             "results": results,
         }
 
+
     def detect_single(self, record: dict, log_anomalies: bool = True) -> dict:
         df = pd.DataFrame([record])
         batch_result = self.detect_batch(df, log_anomalies=log_anomalies)
         return batch_result["results"][0]
+
 
     def _append_anomaly_log(self, new_anomalies: list):
         log_path = str(ANOMALY_LOG_PATH)

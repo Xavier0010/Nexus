@@ -1,10 +1,8 @@
-# - Libraries -
 import os
 from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 
-# Load environment variables from .env file
 load_dotenv()
 
 # - Path(s) -
@@ -20,6 +18,11 @@ THRESHOLD_PATH = MODEL_DIR / "threshold.pkl"
 ANOMALY_LOG_PATH = LOG_DIR / "anomaly_log.json"
 FAILED_PAYLOAD_PATH = LOG_DIR / "failed_payloads.jsonl"
 
+SUMMARY_DIR = LOG_DIR / "summary"
+DAILY_SUMMARY_DIR = SUMMARY_DIR / "daily"
+WEEKLY_SUMMARY_DIR = SUMMARY_DIR / "weekly"
+
+
 # - Database -
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
@@ -32,10 +35,10 @@ DB_CONFIG = {
 # Set to True if DB is hosted
 DB_ENABLED = True
 
-# SQLAlchemy Connection String
+# SQLAlchemy Connection
 DATABASE_URL = f"mysql+pymysql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
 
-# Create SQLAlchemy Engine
+# SQLAlchemy Engine
 ENGINE = create_engine(DATABASE_URL)
 
 # Fetch training data from DB
@@ -72,13 +75,31 @@ THRESHOLD_PERCENTILE = 10
 CONFIRM_STRIKES = 3
 RECOVER_STRIKES = 3
 
-# - Model Retraining Interval -
-RETRAIN_INTERVAL_HOURS = 12
-
-# - Schedule Retraining (every 12 hours: 02.00 & 14.00) -
+# - Schedule Retraining -
 RETRAIN_SCHEDULE = {
-    "hour": "2,14",
-    "minute": "0",
+    "hour": "*",
+    "minute": 0
+}
+
+# - Notifier Configuration -
+MONITOR_ENABLED=True
+NOTIFY_BATCH_LIMIT = 5
+MAX_RETRIES = 3
+BASE_DELAY = 1.0
+COOLDOWN_SECONDS=0
+SEND_RECOVERY_ALERTS=True
+LOG_LEVEL="INFO"
+
+# - Priority Webhook -
+WEBHOOK_WARNING_INTERVAL_SECONDS = 180  # 3 minutes — warning digest interval
+CRITICAL_RT_MS = 8000                   # response time (ms) threshold for CRITICAL
+CRITICAL_SCORE_MULTIPLIER = 1.5         # score must be this × below threshold for CRITICAL
+ESCALATE_STRIKES = 10                   # warning auto-promotes to CRITICAL after N strikes
+
+# Summary Schedule
+SUMMARY_SCHEDULE = {
+    "hour": 0,
+    "minute": 0
 }
 
 # - Batch Fetching Interval (every 10 seconds) -

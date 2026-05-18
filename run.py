@@ -4,7 +4,8 @@ import json
 import random
 from datetime import datetime
 
-from detector import AnomalyDetector
+from anomaly_detector.detector import AnomalyDetector
+from config import ANOMALY_LOG_PATH, FAILED_PAYLOAD_PATH, LOG_DIR
 
 
 # - Menu -
@@ -21,32 +22,35 @@ def print_menu():
     print("    5. Retrain Model (once)")
     print("    6. Retrain Model (12-hour loop)")
     print()
-    print("  Misc")
-    print("    7. Clear anomaly logs")
-    print("    8. Clear failed payloads")
-    print("    9. Clear summaries")
+    print("  Reports")
+    print("    7. Generate today's summary")
+    print("    8. Generate week's summary")
     print()
+    print("  Misc")
+    print("    9. Clear anomaly logs")
+    print("    10. Clear failed payloads")
+    print("    11. Clear summaries")
     print("    0. Exit")
     print("  " + "─" * 32)
 
 
 # - Actions -
 def single_detect():
-    print("\n  [Single Detect] Leave blank to use defaults.")
+    print("\n[Single Detect] Leave blank to use defaults.")
 
     try:
-        id_app = input("  App ID [1]: ")
+        id_app = input("App ID [1]: ")
         id_app = int(id_app) if id_app.strip() else 1
 
-        url = input("  URL [https://api.example.com]: ").strip()
+        url = input("URL [https://api.example.com]: ").strip()
         if not url:
             url = "https://api.example.com"
 
-        status = input("  Status (UP/DOWN) [UP]: ").strip().upper()
+        status = input("Status (UP/DOWN) [UP]: ").strip().upper()
         if not status:
             status = "UP"
 
-        status_code = input("  HTTP Status Code [200]: ")
+        status_code = input("HTTP Status Code [200]: ")
         status_code = int(status_code) if status_code.strip() else 200
 
         resp_time = input("  Response Time in ms [150]: ")
@@ -81,37 +85,36 @@ def single_detect():
     except Exception as e:
         print(f"\n  [!] Error: {e}")
 
-    input("\n  Press Enter to return to menu...")
+    input("\nPress Enter to return to menu...")
 
 
 def reload_model():
-    print("\n  [Reload Model] Reloading from disk...")
+    print("\n[Reload Model] Reloading from disk...")
     try:
         det = AnomalyDetector()
         det.reload()
-        print(f"  Done. Threshold: {round(float(det.threshold), 5)}")
+        print(f"Done. Threshold: {round(float(det.threshold), 5)}")
     except Exception as e:
         print(f"  [!] Error: {e}")
-    input("\n  Press Enter to return to menu...")
+    input("\nPress Enter to return to menu...")
 
 
 def clear_log(label, path, is_json=True):
-    print(f"\n  [Clear] {label}...")
+    print(f"\n[Clear] {label}...")
     try:
         with open(str(path), "w") as f:
             if is_json:
                 json.dump([], f)
             else:
                 f.write("")
-        print(f"  Done. {label} cleared.")
+        print(f"Done. {label} cleared.")
     except Exception as e:
-        print(f"  [!] Error: {e}")
-    input("\n  Press Enter to return to menu...")
+        print(f"[!] Error: {e}")
+    input("\nPress Enter to return to menu...")
 
 
 def clear_summaries():
-    from config import LOG_DIR
-    print("\n  [Clear] Summaries...")
+    print("\n[Clear] Summaries...")
     try:
         summary_dir = LOG_DIR / "summaries"
         if summary_dir.exists():
@@ -120,29 +123,28 @@ def clear_summaries():
                 if file.startswith("summary_") and file.endswith(".json"):
                     os.remove(summary_dir / file)
                     count += 1
-            print(f"  Done. {count} summaries cleared.")
+            print(f"Done. {count} summaries cleared.")
         else:
-            print("  No summaries found.")
+            print("No summaries found.")
     except Exception as e:
-        print(f"  [!] Error: {e}")
-    input("\n  Press Enter to return to menu...")
+        print(f"[!] Error: {e}")
+    input("\nPress Enter to return to menu...")
 
 
 # - Main -
 def main():
-    from config import ANOMALY_LOG_PATH, FAILED_PAYLOAD_PATH
 
     while True:
         print_menu()
-        choice = input("  Select (0-9): ").strip()
+        choice = input("Select (0-9): ").strip()
 
         if choice == "1":
-            print("\n  [Batch Detect] Running from CSV...")
-            os.system(f"{sys.executable} batch_detector.py")
+            print("\n[Batch Detect] Running from CSV...")
+            os.system(f"{sys.executable} -m anomaly_detector.batch_detector")
 
         elif choice == "2":
-            print("\n  [Batch Detect] Polling from DB (Ctrl+C to stop)...")
-            os.system(f"{sys.executable} batch_detector.py --poll")
+            print("\n[Batch Detect] Polling from DB (Ctrl+C to stop)...")
+            os.system(f"{sys.executable} -m anomaly_detector.batch_detector --poll")
 
         elif choice == "3":
             single_detect()
@@ -151,33 +153,41 @@ def main():
             reload_model()
 
         elif choice == "5":
-            print("\n  [Retrain] Running one-time retrain...")
-            os.system(f"{sys.executable} retrain_scheduler.py")
+            print("\n[Retrain] Running one-time retrain...")
+            os.system(f"{sys.executable} -m anomaly_detector.retrain_scheduler")
 
         elif choice == "6":
-            print("\n  [Retrain] Starting 12-hour loop (Ctrl+C to stop)...")
-            os.system(f"{sys.executable} retrain_scheduler.py --loop")
+            print("\n[Retrain] Starting 12-hour loop (Ctrl+C to stop)...")
+            os.system(f"{sys.executable} -m anomaly_detector.retrain_scheduler --loop")
 
         elif choice == "7":
-            clear_log("Anomaly logs", ANOMALY_LOG_PATH, is_json=True)
+            print("\n[Report] Generating daily summary...")
+            os.system(f"{sys.executable} -m report.daily_summary")
 
         elif choice == "8":
-            clear_log("Failed payloads", FAILED_PAYLOAD_PATH, is_json=False)
+            print("\n[Report] Generating weekly summary...")
+            os.system(f"{sys.executable} -m report.weekly_summary")
 
         elif choice == "9":
+            clear_log("Anomaly logs", ANOMALY_LOG_PATH, is_json=True)
+
+        elif choice == "10":
+            clear_log("Failed payloads", FAILED_PAYLOAD_PATH, is_json=False)
+
+        elif choice == "11":
             clear_summaries()
 
         elif choice == "0":
-            print("\n  Goodbye!\n")
+            print("\nGoodbye!\n")
             sys.exit(0)
 
         else:
-            print("\n  [!] Invalid option. Enter 0-9.")
+            print("\n[!] Invalid option. Enter 0-11.")
 
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n  Goodbye!\n")
+        print("\n\nGoodbye!\n")
         sys.exit(0)

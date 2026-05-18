@@ -1,34 +1,33 @@
-# - Libraries -
 import pandas as pd
 import numpy as np
 
 pd.set_option('future.no_silent_downcasting', True)
 
 FEATURE_COLUMNS = [
-    # Raw behavior
-    'status',               # Kondisi endpoint (UP/DOWN)
-    'response_time_ms',     # Response time (ms)
-    'http_status_code',     # Kode http dari hasil respons
+    # Raw
+    'status',
+    'response_time_ms',
+    'http_status_code',
 
     # Temporal
-    'hour',                 # Terjadinya jam request untuk mengetahui pola harian
-    'day',                  # Menunjukkan hari dalam minggu untuk menangkap pola mingguan
-    'is_weekend',           # Apakah request terjadi di weekend (potensi traffic berbeda)
+    'hour',
+    'day',
+    'is_weekend',
 
-    # Statistics    
-    'rolling_z_score',      # Seberapa jauh response time saat ini menyimpang dari rata-rata historis
-    'rt_percentile',        # Posisi response time saat ini dibandingkan distribusi historis
-    'rt_rolling_std',       # Apakah response time stabil dalam periode pendek (standard deviation)
+    # Statistical
+    'rolling_z_score',
+    'rt_percentile',
+    'rt_rolling_std',
 
     # Sequence
-    'fail_diff',            # Menunjukkan perubahan status kegagalan dibandingkan request sebelumnya untuk mendeteksi lonjakan error.
-    'rt_diff',              # Selisih rt sekarang dengan rt sebelumnya
-    'rt_drift',             # Membandingkan rata-rata jangka pendek dan panjang untuk mendeteksi pergeseran performa.
+    'fail_diff',
+    'rt_diff',
+    'rt_drift',
 
     # Service
-    'is_monolith',          # Apakah endpoint monolith / microservice
-    'service_median_rt',    # Median rt untuk setiap service
-    'rt_relative'           # Rt relatif terhadap baseline service untuk memahami deviasi performa.
+    'is_monolith',
+    'service_median_rt',
+    'rt_relative',
 ]
 
 def _prepare_base(df: pd.DataFrame) -> pd.DataFrame:

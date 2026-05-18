@@ -1,0 +1,179 @@
+{
+  "period": {
+    "from": "2026-05-10 23:36:19",
+    "to": "2026-05-15 13:30:08",
+    "generated_at": "2026-05-17T12:17:24.345378"
+  },
+  "overview": {
+    "total_anomaly_events": 1600,
+    "affected_apps": 17,
+    "affected_services": 13,
+    "availability_percentage": 64.81,
+    "average_response_time_ms": 1857,
+    "peak_incident_hour": "23:00",
+    "most_common_http_error": 403
+  },
+  "incident_types": {
+    "latency": 1,
+    "availability": 7,
+    "http_error": 0,
+    "drift_only": 5
+  },
+  "top_unstable_services": [
+    {
+      "app_id": 13,
+      "service_id": "6.0",
+      "name": "",
+      "url": "https://www.netflix.com",
+      "total_anomaly_events": 525,
+      "avg_response_time_ms": 3559,
+      "peak_response_time_ms": 5483,
+      "avg_rt_drift_ms": 24.45,
+      "common_http_errors": null,
+      "availability_percentage": 98.86
+    },
+    {
+      "app_id": 2,
+      "service_id": "monolithic",
+      "name": "Monolith App 8",
+      "url": "https://www.amazon.com",
+      "total_anomaly_events": 510,
+      "avg_response_time_ms": 492,
+      "peak_response_time_ms": 2798,
+      "avg_rt_drift_ms": 70.09,
+      "common_http_errors": {
+        "403": 63
+      },
+      "availability_percentage": 50.0
+    },
+    {
+      "app_id": 17,
+      "service_id": "14.0",
+      "name": "",
+      "url": "https://www.oracle.com",
+      "total_anomaly_events": 120,
+      "avg_response_time_ms": 171,
+      "peak_response_time_ms": 276,
+      "avg_rt_drift_ms": -3.2,
+      "common_http_errors": {
+        "403": 60
+      },
+      "availability_percentage": 0.0
+    },
+    {
+      "app_id": 20,
+      "service_id": "20.0",
+      "name": "",
+      "url": "https://www.sony.com",
+      "total_anomaly_events": 114,
+      "avg_response_time_ms": 163,
+      "peak_response_time_ms": 228,
+      "avg_rt_drift_ms": -2.15,
+      "common_http_errors": {
+        "403": 57
+      },
+      "availability_percentage": 0.0
+    },
+    {
+      "app_id": 15,
+      "service_id": "9.0",
+      "name": "",
+      "url": "https://www.slack.com",
+      "total_anomaly_events": 90,
+      "avg_response_time_ms": 1308,
+      "peak_response_time_ms": 1743,
+      "avg_rt_drift_ms": -47.5,
+      "common_http_errors": {
+        "429": 3
+      },
+      "availability_percentage": 93.33
+    },
+    {
+      "app_id": 12,
+      "service_id": "4.0",
+      "name": "",
+      "url": "https://www.tiktok.com",
+      "total_anomaly_events": 60,
+      "avg_response_time_ms": 554,
+      "peak_response_time_ms": 1658,
+      "avg_rt_drift_ms": -265.39,
+      "common_http_errors": null,
+      "availability_percentage": 100.0
+    },
+    {
+      "app_id": 16,
+      "service_id": "11.0",
+      "name": "",
+      "url": "https://www.dropbox.com",
+      "total_anomaly_events": 60,
+      "avg_response_time_ms": 973,
+      "peak_response_time_ms": 1137,
+      "avg_rt_drift_ms": -5.61,
+      "common_http_errors": null,
+      "availability_percentage": 100.0
+    },
+    {
+      "app_id": 19,
+      "service_id": "18.0",
+      "name": "",
+      "url": "https://www.amd.com",
+      "total_anomaly_events": 60,
+      "avg_response_time_ms": null,
+      "peak_response_time_ms": null,
+      "avg_rt_drift_ms": null,
+      "common_http_errors": null,
+      "availability_percentage": 0.0
+    },
+    {
+      "app_id": 15,
+      "service_id": "10.0",
+      "name": "",
+      "url": "https://www.zoom.us",
+      "total_anomaly_events": 24,
+      "avg_response_time_ms": 603,
+      "peak_response_time_ms": 635,
+      "avg_rt_drift_ms": -14.62,
+      "common_http_errors": null,
+      "availability_percentage": 100.0
+    },
+    {
+      "app_id": 17,
+      "service_id": "13.0",
+      "name": "",
+      "url": "https://www.salesforce.com",
+      "total_anomaly_events": 24,
+      "avg_response_time_ms": 571,
+      "peak_response_time_ms": 988,
+      "avg_rt_drift_ms": -28.91,
+      "common_http_errors": null,
+      "availability_percentage": 100.0
+    }
+  ],
+  "model_performance": {
+    "total_predictions": 1365,
+    "confirmed_anomalies": 1600,
+    "suppressed_anomalies": 0
+  },
+  "recommendations": [
+    {
+      "priority": "critical",
+      "what_happened": "Service down pada beberapa aplikasi dengan availability 0%, seperti oracle.com dan sony.com",
+      "recommendation": "Periksa konfigurasi dan koneksi jaringan untuk memastikan bahwa layanan dapat diakses dan berjalan dengan normal"
+    },
+    {
+      "priority": "high",
+      "what_happened": "Latensi sangat tinggi pada layanan netflix.com dengan rata-rata response time 3559 ms",
+      "recommendation": "Optimalkan kode dan konfigurasi server untuk mengurangi latensi dan meningkatkan kinerja"
+    },
+    {
+      "priority": "medium",
+      "what_happened": "Error 403 pada beberapa layanan, seperti amazon.com dan oracle.com",
+      "recommendation": "Periksa konfigurasi keamanan dan akses untuk memastikan bahwa pengguna memiliki hak akses yang tepat"
+    },
+    {
+      "priority": "low",
+      "what_happened": "Anomaly kecil pada layanan slack.com dengan error 429",
+      "recommendation": "Monitor dan analisis lebih lanjut untuk memastikan bahwa anomaly tidak berdampak besar pada kinerja layanan"
+    }
+  ]
+}

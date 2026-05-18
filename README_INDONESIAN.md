@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="Nexus_Logo.png" alt="Nexus Logo" width="300">
+  <img src="/assets/Nexus_Logo.png" alt="Nexus Logo" width="300">
 </div>
 
 <h1 align="center">Nexus - Anomaly Detector for Asentinel</h1>
@@ -14,28 +14,32 @@ Mendeteksi anomali pada data pemantauan kesehatan API menggunakan **Isolation Fo
 
 1. Data pemantauan mentah masuk (dari CSV atau database)
 2. Fitur direkayasa dari data mentah (`feature_engineer.py`)
-3. Model Isolation Forest menilai setiap catatan (record)
+3. Model Isolation Forest menilai setiap record
 4. Jika skor di bawah threshold, endpoint mendapat **strike** — belum ditandai sebagai anomali
 5. Setelah **3 strike berturut-turut**, endpoint dikonfirmasi sebagai anomali dan dicatat
 6. Untuk pulih, endpoint harus melewati **3 pemeriksaan normal berturut-turut**
-7. Saat retraining, `summarizer.py` mengelompokkan log anomali menjadi ringkasan lalu membersihkan log
-8. Endpoint `/recommend` meneruskan ringkasan ke LLM (`engine.py`) untuk menghasilkan rencana perbaikan teknis
+7. Anomali yang dikonfirmasi diklasifikasikan berdasarkan prioritas: **CRITICAL** (dikirim langsung) atau **WARNING** (dikirim setiap 3 menit)
+8. Laporan ringkasan harian dan mingguan dibuat dari log anomali
+9. Endpoint `/recommend` meneruskan ringkasan ke LLM untuk menghasilkan rencana perbaikan teknis
 
 > Strike mencegah alarm palsu akibat lonjakan sementara. Dapat dikonfigurasi melalui `CONFIRM_STRIKES` dan `RECOVER_STRIKES` di `config.py`.
 
 ## Struktur Proyek
 
-| File | Fungsi |
-|------|--------|
-| `config.py` | Semua pengaturan (path, DB, parameter model, jadwal, LLM) |
-| `detector.py` | Mesin deteksi utama |
-| `feature_engineer.py` | Membangun fitur dari data pemantauan mentah |
+| File / Module | Fungsi |
+|---|---|
+| `config.py` | Semua pengaturan (path, DB, parameter model, jadwal, webhook, LLM) |
 | `nexus.py` | Server FastAPI — endpoint deteksi dan rekomendasi |
-| `batch_detector.py` | Deteksi batch dari CSV (dev) atau polling DB (prod) |
-| `retrain_scheduler.py` | Melatih ulang model dan memicu summarizer |
-| `summarizer.py` | Mengelompokkan log anomali menjadi ringkasan JSON |
-| `engine.py` | Mengirim ringkasan ke LLM dan mengembalikan rencana perbaikan |
 | `run.py` | Menu CLI interaktif untuk menjalankan bagian mana pun dari sistem |
+| `anomaly_detector/detector.py` | Mesin deteksi utama (state machine strike/recovery) |
+| `anomaly_detector/feature_engineer.py` | Membangun fitur dari data pemantauan mentah |
+| `anomaly_detector/batch_detector.py` | Deteksi batch dari CSV (dev) atau polling DB (prod) |
+| `anomaly_detector/retrain_scheduler.py` | Melatih ulang model setiap jam |
+| `webhook/notifier.py` | Mengirim alert Telegram (CRITICAL langsung, WARNING digest) |
+| `webhook/priority_classifier.py` | Mengklasifikasikan anomali konfirmasi sebagai CRITICAL atau WARNING |
+| `report/daily_summary.py` | Membuat ringkasan anomali harian dari log |
+| `report/weekly_summary.py` | Mengagregasi ringkasan harian menjadi laporan mingguan |
+| `report/engine.py` | Mengirim ringkasan ke LLM dan mengembalikan rencana perbaikan |
 
 ## Persiapan Setup
 
@@ -57,7 +61,7 @@ Cara yang direkomendasikan untuk penggunaan internal/operasional. Jalankan menu 
 python run.py
 ```
 
-Dari menu ini Anda dapat menjalankan deteksi batch (CSV atau DB), deteksi tunggal, retrain model, dan mengelola log — semua dari satu tempat.
+Dari menu ini Anda dapat menjalankan deteksi batch (CSV atau DB), deteksi tunggal, retrain model, membuat laporan, dan mengelola log — semua dari satu tempat.
 
 ### API Endpoint (untuk payload tunggal)
 
@@ -76,4 +80,13 @@ Saat DB Anda sudah di-host:
 1. Atur `DB_ENABLED = True` di `config.py`
 2. Isi kredensial DB di `.env`
 3. Tabel `log_monitor` harus memiliki kolom berikut:
-   `id_log_monitor`, `id_aplikasi`, `id_service`, `url`, `status`, `http_status_code`, `response_time_ms`, `checked_at`, `created_at`, `updated_at`
+   `id_log_monitor`, `id_aplikasi`, `nama`, `id_service`, `url`, `status`, `http_status_code`, `response_time_ms`, `checked_at`, `created_at`, `updated_at`
+
+## Notifikasi Webhook
+
+Anomali yang dikonfirmasi dikirim ke Telegram dengan dua tingkatan prioritas:
+
+| Prioritas | Pemicu | Perilaku |
+|---|---|---|
+| 🔴 CRITICAL | Error server (5xx/0), service down, RT > 8000ms, skor parah, 10+ strike | Dikirim langsung |
+| ⚠️ WARNING | Service aktif tapi drifting, skor anomali ringan | Digest setiap 3 menit |

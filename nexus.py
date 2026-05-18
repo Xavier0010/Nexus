@@ -1,16 +1,15 @@
-# - Libraries -
 import json
+import os
 import pandas as pd
-from pydantic import BaseModel
 from typing import Optional, List
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
-from detector import AnomalyDetector
+from anomaly_detector.detector import AnomalyDetector
 from config import ANOMALY_LOG_PATH, FAILED_PAYLOAD_PATH, LOG_DIR
-from engine import generate_recommendation
-import os
+from report.engine import generate_recommendation, get_latest_summary
 
-# - Helper Function -
+
 def _log_failed_payload(payload_json: str):
     try:
         with open(str(FAILED_PAYLOAD_PATH), "a") as f:
@@ -19,7 +18,6 @@ def _log_failed_payload(payload_json: str):
         pass
 
 
-# - API & Detector -  
 app = FastAPI(
     title="Nexus — Asentinel Anomaly Detector",
     version="1.2.0",
@@ -29,7 +27,6 @@ app = FastAPI(
 detector = AnomalyDetector()
 
 
-# Payload Schemas
 class HealthCheckRecord(BaseModel):
     id_log_monitor: int
     id_aplikasi: int
@@ -46,7 +43,6 @@ class BatchPayload(BaseModel):
     records: List[HealthCheckRecord]
 
 
-# - Endpoints -
 @app.get("/")
 def root():
     return {
@@ -58,18 +54,24 @@ def root():
         },
     }
 
-# Recommendation Engine
+
 @app.get("/recommend")
 async def get_recommendation():
     try:
-        result = generate_recommendation()
-        if "error" in result:
-            raise HTTPException(status_code=500, detail=result["error"])
-        return result
+        summary_data, summary_path = get_latest_summary()
+        if not summary_data:
+            raise HTTPException(status_code=404, detail="No summary found. Run daily summary first.")
+        recommendations = generate_recommendation(summary_data, summary_path)
+        return {
+            "period": summary_data.get("period"),
+            "recommendations": recommendations,
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Detect single record
+
 @app.post("/detect")
 async def detect_single(data: HealthCheckRecord):
     try:
@@ -80,7 +82,6 @@ async def detect_single(data: HealthCheckRecord):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Batch detection
 @app.post("/detect/batch")
 async def detect_batch(data: BatchPayload):
     try:
@@ -92,7 +93,6 @@ async def detect_batch(data: BatchPayload):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Reload model
 @app.post("/reload-model")
 async def reload_model():
     try:
@@ -105,7 +105,6 @@ async def reload_model():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Clear anomaly log
 @app.delete("/clear-logs/anomalies")
 async def clear_anomaly_log():
     try:
@@ -116,7 +115,6 @@ async def clear_anomaly_log():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Clear failed payloads log
 @app.delete("/clear-logs/failed")
 async def clear_failed_payloads():
     try:
@@ -126,7 +124,7 @@ async def clear_failed_payloads():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Clear summaries
+
 @app.delete("/clear-logs/summaries")
 async def clear_summaries():
     try:

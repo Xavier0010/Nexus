@@ -59,6 +59,10 @@ FETCH_QUERY = """
     ORDER BY id_log_monitor ASC
 """
 
+# - Batch Fetching Interval (every 10 seconds) -
+FETCH_INTERVAL_SECONDS = 10
+
+
 # - Model Hyperparameter(s) -
 MODEL_PARAMS = {
     "n_estimators": 200,
@@ -68,6 +72,9 @@ MODEL_PARAMS = {
     "n_jobs": -1,
 }
 
+# - CSV Training Data (without DB) -
+TRAINING_CSV = DATA_DIR / "log_monitor.csv"
+
 # Threshold = Nth percentile of training anomaly scores
 THRESHOLD_PERCENTILE = 10
 
@@ -75,11 +82,13 @@ THRESHOLD_PERCENTILE = 10
 CONFIRM_STRIKES = 3
 RECOVER_STRIKES = 3
 
+
 # - Schedule Retraining -
 RETRAIN_SCHEDULE = {
     "hour": "*",
     "minute": 0
 }
+
 
 # - Notifier Configuration -
 MONITOR_ENABLED=True
@@ -90,11 +99,12 @@ COOLDOWN_SECONDS=0
 SEND_RECOVERY_ALERTS=True
 LOG_LEVEL="INFO"
 
-# - Priority Webhook -
-WEBHOOK_WARNING_INTERVAL_SECONDS = 180  # 3 minutes — warning digest interval
-CRITICAL_RT_MS = 8000                   # response time (ms) threshold for CRITICAL
-CRITICAL_SCORE_MULTIPLIER = 1.5         # score must be this × below threshold for CRITICAL
-ESCALATE_STRIKES = 10                   # warning auto-promotes to CRITICAL after N strikes
+# - Notifier Priority -
+WEBHOOK_WARNING_INTERVAL_SECONDS = 180
+CRITICAL_RT_MS = 4000
+CRITICAL_SCORE_MULTIPLIER = 1.5
+ESCALATE_STRIKES = 10
+
 
 # Summary Schedule
 SUMMARY_SCHEDULE = {
@@ -102,16 +112,12 @@ SUMMARY_SCHEDULE = {
     "minute": 0
 }
 
-# - Batch Fetching Interval (every 10 seconds) -
-FETCH_INTERVAL_SECONDS = 10
 
 # - LLM Engine Configuration -
 LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3") or 0.3)
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "500") or 500)
 
-# - CSV Training Data (without DB) -
-TRAINING_CSV = DATA_DIR / "log_monitor.csv"
 
 # - Check Directories Exist -
 MODEL_DIR.mkdir(exist_ok=True)

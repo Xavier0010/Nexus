@@ -15,7 +15,6 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID: str = os.getenv("TELEGRAM_CHAT_ID", "")
 
-# WARNING queue — keyed by (id_aplikasi, url), overwrites on same endpoint.
 _pending_queue: dict[tuple, dict] = {}
 
 

@@ -18,13 +18,12 @@ def _log_failed_payload(payload_json: str):
         pass
 
 
+detector = AnomalyDetector()
 app = FastAPI(
     title="Nexus — Asentinel Anomaly Detector",
     version="1.2.0",
     description="Anomaly detection API for API health monitoring",
 )
-
-detector = AnomalyDetector()
 
 
 class HealthCheckRecord(BaseModel):
@@ -48,30 +47,26 @@ def root():
     return {
         "message": "Nexus — Asentinel Anomaly Detector",
         "endpoints": {
-            "POST /detect": "Single record detection",
-            "POST /detect/batch": "Batch detection",
-            "GET /recommend": "Generate recommendations from the latest summary"
+            "Detector": {
+                "POST /detect": "Single record detection",
+                "POST /detect/batch": "Batch detection",
+                "POST /reload-model": "Reload the anomaly detection model"
+            },
+            "Report": {
+                "GET /recommend": "Generate recommendations after detection",
+                "GET /daily-summary": "Get daily summary (need to be integrated with scheduler)",
+                "GET /weekly-summary": "Get weekly summary (need to be integrated with scheduler)"
+            },
+            "Management": {
+                "DELETE /clear-logs/anomalies": "Clear anomaly logs",
+                "DELETE /clear-logs/failed": "Clear failed payloads",
+                "DELETE /clear-logs/summaries": "Clear summaries"
+            }
         },
     }
 
 
-@app.get("/recommend")
-async def get_recommendation():
-    try:
-        summary_data, summary_path = get_latest_summary()
-        if not summary_data:
-            raise HTTPException(status_code=404, detail="No summary found. Run daily summary first.")
-        recommendations = generate_recommendation(summary_data, summary_path)
-        return {
-            "period": summary_data.get("period"),
-            "recommendations": recommendations,
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
+# --- Detector Endpoint ---
 @app.post("/detect")
 async def detect_single(data: HealthCheckRecord):
     try:
@@ -105,6 +100,49 @@ async def reload_model():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# --- Report Endpoint ---
+@app.get("/recommend")
+async def get_recommendation():
+    try:
+        summary_data, summary_path = get_latest_summary()
+        if not summary_data:
+            raise HTTPException(status_code=404, detail="No summary found. Run daily summary first.")
+        recommendations = generate_recommendation(summary_data, summary_path)
+        return {
+            "period": summary_data.get("period"),
+            "recommendations": recommendations,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get('/daily-summary')
+async def get_daily_summary():
+    try:
+        summary_data, summary_path = get_latest_daily_summary()
+        if not summary_data:
+            raise HTTPException(status_code=404, detail="No dailysummary found. Run daily summary first.")
+        return summary_data
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get('/weekly-summary')
+async def get_weekly_summary():
+    try:
+        summary_data, summary_path = get_latest_weekly_summary()
+        if not summary_data:
+            raise HTTPException(status_code=404, detail="No weekly summary found. Run weekly summary first.")
+        return summary_data
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Log Management Endpoint ---
 @app.delete("/clear-logs/anomalies")
 async def clear_anomaly_log():
     try:

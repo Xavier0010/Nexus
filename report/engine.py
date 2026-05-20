@@ -8,12 +8,29 @@ api_key = os.getenv("API_KEY")
 client = Groq(api_key=api_key) if api_key else None
 
 
-def get_latest_summary():
+def get_latest_daily_summary():
     """Utility for nexus.py /recommend endpoint — reads newest daily summary from disk."""
     if not DAILY_SUMMARY_DIR.exists():
         return None, None
 
     summary_files = glob.glob(str(DAILY_SUMMARY_DIR / "*.json"))
+    if not summary_files:
+        return None, None
+
+    latest_file = max(summary_files, key=os.path.getctime)
+    try:
+        with open(latest_file, "r") as f:
+            return json.load(f), latest_file
+    except Exception as e:
+        print(f"[engine] Error reading summary: {e}")
+        return None, None
+
+def get_latest_weekly_summary():
+    """Utility for nexus.py /recommend endpoint — reads newest weekly summary from disk."""
+    if not WEEKLY_SUMMARY_DIR.exists():
+        return None, None
+
+    summary_files = glob.glob(str(WEEKLY_SUMMARY_DIR / "*.json"))
     if not summary_files:
         return None, None
 

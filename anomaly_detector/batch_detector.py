@@ -22,12 +22,6 @@ except ImportError:
 
 
 def route_anomalies(anomalies: list, label: str = "") -> None:
-    """
-    Route confirmed anomaly entries by priority:
-      - CRITICAL → send_critical() fires immediately to Telegram
-      - WARNING  → queue_warning() adds to 3-min digest queue
-    Skips routing entirely if count exceeds NOTIFY_BATCH_LIMIT (historical data guard).
-    """
     if not _NOTIFIER_AVAILABLE:
         return
 

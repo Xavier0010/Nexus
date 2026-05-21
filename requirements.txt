@@ -1,22 +1,23 @@
-# Core ML & data
-pandas
-numpy
-scikit-learn
-joblib
+# Core Machine Learning & Data Processing
+pandas>=2.0.0
+numpy>=1.22.0
+scikit-learn>=1.0.0
+joblib>=1.1.0
 
-# Database
-pymysql
-sqlalchemy
+# Database Connectivity (SQLAlchemy & MySQL)
+SQLAlchemy>=2.0.0
+PyMySQL>=1.0.0
+cryptography>=40.0.0
 
-# API server & HTTP client
-fastapi
-uvicorn[standard]
-httpx
-pydantic
-pydantic-settings
+# API Server & HTTP Client
+fastapi>=0.100.0
+uvicorn[standard]>=0.20.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+httpx>=0.24.0
 
-# LLM
-groq
+# Large Language Model (Groq SDK)
+groq>=0.5.0
 
-# Utilities
-python-dotenv
+# Configuration & Utilities
+python-dotenv>=1.0.0

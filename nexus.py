@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from anomaly_detector.detector import AnomalyDetector
 from config import ANOMALY_LOG_PATH, FAILED_PAYLOAD_PATH, LOG_DIR
-from report.engine import generate_recommendation, get_latest_summary
+from report.engine import generate_recommendation, get_latest_daily_summary, get_latest_weekly_summary, aggregate_anomalies
 
 
 def _log_failed_payload(payload_json: str):
@@ -102,14 +102,24 @@ async def reload_model():
 
 # --- Report Endpoint ---
 @app.get("/recommend")
-async def get_recommendation():
+async def get_recommendation(limit: int = 100):
     try:
-        summary_data, summary_path = get_latest_summary()
-        if not summary_data:
-            raise HTTPException(status_code=404, detail="No summary found. Run daily summary first.")
-        recommendations = generate_recommendation(summary_data, summary_path)
+        try:
+            with open(str(ANOMALY_LOG_PATH), "r") as f:
+                log_data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            log_data = []
+
+        if not log_data:
+            raise HTTPException(status_code=404, detail="No recent detections found in anomaly log.")
+
+        recent_anomalies = log_data[-limit:] if limit > 0 else log_data
+        summary_data = aggregate_anomalies(recent_anomalies)
+        
+        recommendations = generate_recommendation(summary_data)
         return {
             "period": summary_data.get("period"),
+            "total_anomalies_analyzed": len(recent_anomalies),
             "recommendations": recommendations,
         }
     except HTTPException:

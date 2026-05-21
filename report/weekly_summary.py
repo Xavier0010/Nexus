@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 from config import (
     DAILY_SUMMARY_DIR,
-    WEEKLY_SUMMARY_DIR,
+    WEEKLY_SUMMARY_DIR
 )
 from report.engine import generate_recommendation
 

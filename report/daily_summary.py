@@ -1,8 +1,7 @@
 import json
-import time
 import argparse
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 from config import (
     ANOMALY_LOG_PATH,
     DAILY_SUMMARY_DIR
@@ -206,28 +205,7 @@ def daily_summary():
 
     return summary
 
-def daily_summary_loop():
-    print("[summary] Loop mode: generating summary daily at 00:00")
-
-    while True:
-        now = datetime.now()
-        next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-        sleep_secs = (next_midnight - now).total_seconds()
-        print(f"[summary] Next summary in {sleep_secs/3600:.1f}h (at {next_midnight.strftime('%Y-%m-%d %H:%M:%S')})")
-        time.sleep(sleep_secs)
-
-        try:
-            daily_summary()
-        except Exception as e:
-            print(f"[summary] Error during summary generation: {e}")
-
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Anomaly log summarizer")
-    parser.add_argument("--loop", action="store_true", help="Run in loop mode (scheduled daily summary at 00:00)")
+    parser = argparse.ArgumentParser(description="Anomaly log summarizer — run once to generate today's summary.")
     args = parser.parse_args()
-
-    if args.loop:
-        daily_summary_loop()
-    else:
-        daily_summary()
+    daily_summary()

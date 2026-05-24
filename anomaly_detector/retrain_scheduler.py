@@ -23,7 +23,7 @@ from config import (
 
 
 def fetch_training_data() -> pd.DataFrame:
-    if DB_ENABLED:
+    if ENGINE is not None:
         try:
             with ENGINE.connect() as conn:
                 df = pd.read_sql(text(TRAINING_QUERY), conn)

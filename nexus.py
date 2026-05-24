@@ -176,13 +176,14 @@ async def clear_failed_payloads():
 @app.delete("/clear-logs/summaries")
 async def clear_summaries():
     try:
-        summary_dir = LOG_DIR / "summaries"
+        summary_dir = LOG_DIR / "summary"
         if summary_dir.exists():
             count = 0
-            for file in os.listdir(summary_dir):
-                if file.startswith("summary_") and file.endswith(".json"):
-                    os.remove(summary_dir / file)
-                    count += 1
+            for root, _, files in os.walk(summary_dir):
+                for file in files:
+                    if (file.startswith("daily_") or file.startswith("weekly_")) and file.endswith(".json"):
+                        os.remove(os.path.join(root, file))
+                        count += 1
             return {"message": f"Cleared {count} summaries."}
         return {"message": "No summaries found."}
     except Exception as e:

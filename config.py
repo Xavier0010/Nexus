@@ -1,9 +1,13 @@
+import logging
 import os
 from pathlib import Path
+from typing import Literal, Optional, Tuple
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, Engine
 
 load_dotenv()
+
+_log = logging.getLogger("nexus.config")
 
 # - Path(s) -
 BASE_DIR = Path(__file__).resolve().parent
@@ -23,23 +27,53 @@ DAILY_SUMMARY_DIR = SUMMARY_DIR / "daily"
 WEEKLY_SUMMARY_DIR = SUMMARY_DIR / "weekly"
 
 
-# - Database -
+# - Database (Priority: Hosted MySQL/MariaDB) -
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "localhost"),
-    "port": int(os.getenv("DB_PORT", "3306") or 3306),
-    "user": os.getenv("DB_USER", "root"),
+    "host":     os.getenv("DB_HOST", "localhost"),
+    "port":     int(os.getenv("DB_PORT", "3306") or 3306),
+    "user":     os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASS", ""),
     "database": os.getenv("DB_NAME", "Asentinel"),
 }
 
-# Set to True if DB is hosted
+MYSQL_URL = (
+    f"mysql+pymysql://{DB_CONFIG['user']}:{DB_CONFIG['password']}"
+    f"@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
+)
+
+# - Database (Alternative 1: Local SQLite fallback) -
+# Set SQLITE_DB_PATH in .env to point at the Laravel workspace database.sqlite
+SQLITE_DB_PATH: str = os.getenv("SQLITE_DB_PATH", "")
+
+# - Database (Alternative 2: CSV fallback) -
+CSV_FALLBACK_ENABLED = False
+
+# Legacy aliases kept for backwards compatibility
 DB_ENABLED = True
 
-# SQLAlchemy Connection
-DATABASE_URL = f"mysql+pymysql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
+# DB Engine
+DB_MODE = "none"
+ENGINE = None
 
-# SQLAlchemy Engine
-ENGINE = create_engine(DATABASE_URL)
+try:
+    ENGINE = create_engine(MYSQL_URL, pool_pre_ping=True)
+    with ENGINE.connect():
+        DB_MODE = "mysql"
+        _log.info("[db] Hosted MySQL connected.")
+except Exception:
+    if SQLITE_DB_PATH and Path(SQLITE_DB_PATH).is_file():
+        try:
+            sqlite_url = f"sqlite:///{Path(SQLITE_DB_PATH).as_posix()}"
+            ENGINE = create_engine(sqlite_url, pool_pre_ping=True)
+            with ENGINE.connect():
+                DB_MODE = "sqlite"
+                _log.info("[db] SQLite connected.")
+        except Exception:
+            pass
+
+if DB_MODE == "none":
+    DB_MODE = "csv"
+    _log.warning("[db] Falling back to CSV mode.")
 
 # Fetch training data from DB
 TRAINING_QUERY = """
@@ -92,6 +126,8 @@ RETRAIN_SCHEDULE = {
 
 # - Notifier Configuration -
 MONITOR_ENABLED=True
+TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID: str = os.getenv("TELEGRAM_CHAT_ID", "")
 NOTIFY_BATCH_LIMIT = 5
 MAX_RETRIES = 3
 BASE_DELAY = 1.0

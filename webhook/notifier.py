@@ -4,16 +4,15 @@ import httpx
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
+from webhook.priority_classifier import classify
 from config import (
     MAX_RETRIES,
     BASE_DELAY,
+    TELEGRAM_BOT_TOKEN,
+    TELEGRAM_CHAT_ID
 )
-from webhook.priority_classifier import classify
 
 load_dotenv(Path(__file__).parent.parent / ".env")
-
-TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID: str = os.getenv("TELEGRAM_CHAT_ID", "")
 
 _pending_queue: dict[tuple, dict] = {}
 
@@ -100,7 +99,6 @@ def _send_message(text: str) -> bool:
 
 
 def send_critical(anomalies: list[dict]) -> int:
-    """Send CRITICAL anomalies immediately with a 🔴 CRITICAL ALERT header."""
     if not anomalies:
         return 0
     text = _format_batch_message(anomalies, header_prefix="🔴 *CRITICAL ALERT")
@@ -108,13 +106,11 @@ def send_critical(anomalies: list[dict]) -> int:
 
 
 def queue_warning(entry: dict) -> None:
-    """Add a WARNING anomaly to the pending queue. Same endpoint overwrites (no dupes)."""
     key = (entry.get("id_aplikasi"), entry.get("url"))
     _pending_queue[key] = entry
 
 
 def flush_warnings() -> int:
-    """Send all queued warnings as one digest, clear queue. Returns 1 if sent, 0 if empty."""
     if not _pending_queue:
         return 0
 
@@ -126,7 +122,6 @@ def flush_warnings() -> int:
 
 
 def notify_anomalies(anomalies: list[dict]) -> int:
-    """Legacy entry point — routes via classifier. CRITICAL sent immediately, WARNING queued."""
     if not anomalies:
         return 0
 

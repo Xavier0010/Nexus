@@ -3,7 +3,6 @@ import sys
 import json
 import random
 from datetime import datetime
-
 from anomaly_detector.detector import AnomalyDetector
 from config import ANOMALY_LOG_PATH, FAILED_PAYLOAD_PATH, LOG_DIR
 
@@ -19,17 +18,16 @@ def print_menu():
     print()
     print("  Model Utilities")
     print("    4. Reload Model")
-    print("    5. Retrain Model (once)")
-    print("    6. Retrain Model (12-hour loop)")
+    print("    5. Retrain Model")
     print()
     print("  Reports")
-    print("    7. Generate today's summary")
-    print("    8. Generate week's summary")
+    print("    6. Generate today's summary")
+    print("    7. Generate week's summary")
     print()
     print("  Misc")
-    print("    9. Clear anomaly logs")
-    print("    10. Clear failed payloads")
-    print("    11. Clear summaries")
+    print("    8. Clear anomaly logs")
+    print("    9. Clear failed payloads")
+    print("    10. Clear summaries")
     print("    0. Exit")
     print("  " + "─" * 32)
 
@@ -116,13 +114,14 @@ def clear_log(label, path, is_json=True):
 def clear_summaries():
     print("\n[Clear] Summaries...")
     try:
-        summary_dir = LOG_DIR / "summaries"
+        summary_dir = LOG_DIR / "summary"
         if summary_dir.exists():
             count = 0
-            for file in os.listdir(summary_dir):
-                if file.startswith("summary_") and file.endswith(".json"):
-                    os.remove(summary_dir / file)
-                    count += 1
+            for root, _, files in os.walk(summary_dir):
+                for file in files:
+                    if (file.startswith("daily_") or file.startswith("weekly_")) and file.endswith(".json"):
+                        os.remove(os.path.join(root, file))
+                        count += 1
             print(f"Done. {count} summaries cleared.")
         else:
             print("No summaries found.")
@@ -136,7 +135,7 @@ def main():
 
     while True:
         print_menu()
-        choice = input("Select (0-9): ").strip()
+        choice = input("Select (0-10): ").strip()
 
         if choice == "1":
             print("\n[Batch Detect] Running from CSV...")
@@ -157,24 +156,20 @@ def main():
             os.system(f"{sys.executable} -m anomaly_detector.retrain_scheduler")
 
         elif choice == "6":
-            print("\n[Retrain] Starting 12-hour loop (Ctrl+C to stop)...")
-            os.system(f"{sys.executable} -m anomaly_detector.retrain_scheduler --loop")
-
-        elif choice == "7":
             print("\n[Report] Generating daily summary...")
             os.system(f"{sys.executable} -m report.daily_summary")
 
-        elif choice == "8":
+        elif choice == "7":
             print("\n[Report] Generating weekly summary...")
             os.system(f"{sys.executable} -m report.weekly_summary")
 
-        elif choice == "9":
+        elif choice == "8":
             clear_log("Anomaly logs", ANOMALY_LOG_PATH, is_json=True)
 
-        elif choice == "10":
+        elif choice == "9":
             clear_log("Failed payloads", FAILED_PAYLOAD_PATH, is_json=False)
 
-        elif choice == "11":
+        elif choice == "10":
             clear_summaries()
 
         elif choice == "0":
@@ -182,7 +177,7 @@ def main():
             sys.exit(0)
 
         else:
-            print("\n[!] Invalid option. Enter 0-11.")
+            print("\n[!] Invalid option. Enter 0-10.")
 
 
 if __name__ == "__main__":

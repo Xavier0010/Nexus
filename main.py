@@ -5,7 +5,11 @@ import sys
 import threading
 import time
 from datetime import datetime, timedelta
-
+from anomaly_detector.detector import AnomalyDetector
+from anomaly_detector.batch_detector import detect_database
+from anomaly_detector.retrain_scheduler import retrain_model
+from report.daily_summary import daily_summary
+from report.weekly_summary import weekly_summary
 from config import ANOMALY_LOG_PATH, FETCH_INTERVAL_SECONDS
 
 logging.basicConfig(
@@ -29,8 +33,6 @@ def _clear_anomaly_log() -> None:
 
 def _detector_thread() -> None:
     log.info("[detector] Thread started.")
-    from anomaly_detector.detector import AnomalyDetector
-    from anomaly_detector.batch_detector import detect_database
 
     try:
         detector = AnomalyDetector()
@@ -51,7 +53,6 @@ def _retrain_thread() -> None:
 
         log.info("[retrain] Starting scheduled retrain...")
         try:
-            from anomaly_detector.retrain_scheduler import retrain_model
             retrain_model()
         except Exception as e:
             log.error(f"[retrain] Error during retrain: {e}")
@@ -81,7 +82,6 @@ def _summary_thread() -> None:
 
         log.info("[summary] Generating daily summary...")
         try:
-            from report.daily_summary import daily_summary
             result = daily_summary()
             if result is not None:
                 _clear_anomaly_log()
@@ -89,9 +89,8 @@ def _summary_thread() -> None:
             log.error(f"[summary] Daily summary error: {e}")
 
         if datetime.now().weekday() == 6:
-            log.info("[summary] Sunday detected — generating weekly summary...")
+            log.info("[summary] It's Sunday, generating weekly summary...")
             try:
-                from report.weekly_summary import weekly_summary
                 weekly_summary()
             except Exception as e:
                 log.error(f"[summary] Weekly summary error: {e}")
@@ -109,7 +108,7 @@ def _interruptible_sleep(seconds: float) -> None:
 
 
 def _handle_signal(signum, frame):
-    log.info(f"\n[nexus] Signal {signum} received — shutting down gracefully...")
+    log.info(f"\n[nexus] Signal {signum} received — shutting down...")
     _shutdown.set()
 
 

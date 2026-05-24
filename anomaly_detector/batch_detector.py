@@ -3,10 +3,12 @@ import argparse
 import pandas as pd
 from sqlalchemy import text
 from anomaly_detector.detector import AnomalyDetector
+from webhook.notifier import send_critical, queue_warning, flush_warnings
+from webhook.priority_classifier import classify
 from config import (
     TRAINING_CSV,
-    DB_ENABLED,
     ENGINE,
+    DB_MODE,
     FETCH_QUERY,
     FETCH_INTERVAL_SECONDS,
     NOTIFY_BATCH_LIMIT,
@@ -14,8 +16,6 @@ from config import (
 )
 
 try:
-    from webhook.notifier import send_critical, queue_warning, flush_warnings
-    from webhook.priority_classifier import classify
     _NOTIFIER_AVAILABLE = True
 except ImportError:
     _NOTIFIER_AVAILABLE = False
@@ -54,10 +54,7 @@ def detect_csv(detector: AnomalyDetector):
 
     for batch_time, batch_df in df.groupby("batch_group"):
         batch_df = batch_df.copy()
-        batch_df.loc[
-            (batch_df["status"] == "DOWN") & (batch_df["response_time_ms"].isnull()),
-            "response_time_ms",
-        ] = -1
+        batch_df.loc[(batch_df["status"] == "DOWN") & (batch_df["response_time_ms"].isnull()), "response_time_ms"] = -1
         batch_df = batch_df.drop(columns=["batch_group"])
 
         print(f"\nBatch: {batch_time} ({len(batch_df)} rows)")
@@ -91,16 +88,25 @@ def detect_csv(detector: AnomalyDetector):
 
 
 def detect_database(detector: AnomalyDetector):
-    if not DB_ENABLED:
-        print("[detector] DB_ENABLED is False, use CSV mode instead.")
+    """
+    Entry point for the DB detection loop.
+    """
+    if DB_MODE == "csv":
+        print("[detector] ⚠️  No DB available — falling back to CSV mode.")
+        detect_csv(detector)
         return
+
+    if DB_MODE == "none" or ENGINE is None:
+        print("[detector] ❌ No data source available. Exiting.")
+        return
+
+    tier_label = "Hosted MySQL" if DB_MODE == "mysql" else "Local SQLite"
+    print(f"[detector] {tier_label} — starting DB poll loop (every {FETCH_INTERVAL_SECONDS}s)")
+    print(f"[notifier] Warning digest interval: {WEBHOOK_WARNING_INTERVAL_SECONDS}s")
 
     last_id = 0
     is_first_fetch = True
     _last_flush = time.time()
-
-    print(f"[detector] Starting DB poll loop (every {FETCH_INTERVAL_SECONDS}s)")
-    print(f"[notifier] Warning digest interval: {WEBHOOK_WARNING_INTERVAL_SECONDS}s")
 
     while True:
         try:
@@ -137,7 +143,8 @@ def detect_database(detector: AnomalyDetector):
                 is_first_fetch = False
 
         except Exception as e:
-            print(f"[detector] Error: {e}")
+            print(f"[detector] DB error: {e}")
+            print("[detector] 🔄 Retrying in next cycle...")
 
         # 3-minute warning digest flush
         now = time.time()

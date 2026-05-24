@@ -2,28 +2,43 @@
 
 Base URL: `http://127.0.0.1:8000`
 
+> Interactive docs also available at `http://127.0.0.1:8000/docs` (Swagger UI) and `http://127.0.0.1:8000/redoc`.
+
 ---
 
 ## GET /
 
-Health check. Returns available endpoints.
+Health check. Returns all available endpoints grouped by category.
 
-**Response:**
+**Response (200):**
 ```json
 {
   "message": "Nexus — Asentinel Anomaly Detector",
   "endpoints": {
-    "POST /detect": "Single record detection",
-    "POST /detect/batch": "Batch detection",
-    "GET /recommend": "Generate recommendations from the latest summary"
+    "Detector": {
+      "POST /detect": "Single record detection",
+      "POST /detect/batch": "Batch detection",
+      "POST /reload-model": "Reload the anomaly detection model"
+    },
+    "Report": {
+      "GET /recommend": "Generate recommendations after detection",
+      "GET /daily-summary": "Get daily summary (need to be integrated with scheduler)",
+      "GET /weekly-summary": "Get weekly summary (need to be integrated with scheduler)"
+    },
+    "Management": {
+      "DELETE /clear-logs/anomalies": "Clear anomaly logs",
+      "DELETE /clear-logs/failed": "Clear failed payloads",
+      "DELETE /clear-logs/summaries": "Clear summaries"
+    }
   }
 }
 ```
+
 ---
 
 ## POST /detect
 
-Detect anomaly on a single record. Use this from PHP or any external service.
+Detect anomaly on a single monitoring record. Use this from PHP or any external service that pushes records in real-time.
 
 **Request Body:**
 ```json
@@ -80,6 +95,8 @@ Detect anomaly on a single record. Use this from PHP or any external service.
 - `anomaly_score`: lower = more anomalous
 - `threshold`: current model threshold
 
+> Failed payloads (on 500 errors) are automatically saved to `logs/failed_payloads.jsonl`.
+
 ---
 
 ## POST /detect/batch
@@ -112,7 +129,21 @@ Detect anomalies on multiple records at once.
   "total": 1,
   "anomalies_found": 0,
   "threshold": -0.52707,
-  "results": [ ... ]
+  "results": [ "..." ]
+}
+```
+
+---
+
+## POST /reload-model
+
+Reload the Isolation Forest model, scaler, and threshold from disk without restarting the server. Useful after a retrain.
+
+**Response (200):**
+```json
+{
+  "message": "Model reloaded.",
+  "threshold": -0.52707
 }
 ```
 
@@ -120,7 +151,13 @@ Detect anomalies on multiple records at once.
 
 ## GET /recommend
 
-Generate a technical recommendation plan based on the latest anomaly summary.
+Generate a technical remediation recommendation plan based on the most recent entries in the anomaly log. Calls the LLM engine.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Notes |
+|-----------|------|---------|-------|
+| `limit` | int | `100` | Number of most recent anomaly records to analyze. Use `0` for all. |
 
 **Response (200):**
 ```json
@@ -130,34 +167,79 @@ Generate a technical recommendation plan based on the latest anomaly summary.
     "to": "2026-04-17 04:17:26",
     "generated_at": "2026-04-23T22:55:50.719207"
   },
-  "recommendation": [
-    "1. Investigasi server...",
-    "2. Periksa load balancer...",
-    "3. Evaluasi kapasitas..."
+  "total_anomalies_analyzed": 42,
+  "recommendations": [
+    {
+      "priority": "critical",
+      "what_happened": "Service X has been down for 5 consecutive checks",
+      "recommendation": "Restart the service and check upstream dependencies"
+    }
   ]
 }
 ```
 
+**Response (404):** No entries in the anomaly log yet.
+
 ---
 
-## Administrative Endpoints
+## GET /daily-summary
 
-### POST /reload-model
-Reload the model from disk without restarting the server.
+Returns the most recently generated daily anomaly summary JSON file.
 
-### DELETE /clear-logs/anomalies
-Clear the anomaly log file (`logs/anomaly_log.json`).
+**Response (200):** Full daily summary object (same structure as `logs/summary/daily/daily_*.json`).
 
-### DELETE /clear-logs/failed
+**Response (404):** No daily summary has been generated yet. Run the daily summary first (via `main.py` scheduler or `run.py` menu option 6).
+
+---
+
+## GET /weekly-summary
+
+Returns the most recently generated weekly anomaly summary JSON file.
+
+**Response (200):** Full weekly summary object (same structure as `logs/summary/weekly/weekly_*.json`).
+
+**Response (404):** No weekly summary has been generated yet. Run the weekly summary first (via `main.py` scheduler or `run.py` menu option 7).
+
+---
+
+## DELETE /clear-logs/anomalies
+
+Clear the anomaly log file (`logs/anomaly_log.json`), resetting it to an empty array.
+
+**Response (200):**
+```json
+{ "message": "Anomaly log cleared." }
+```
+
+---
+
+## DELETE /clear-logs/failed
+
 Clear the failed payloads log (`logs/failed_payloads.jsonl`).
 
-### DELETE /clear-logs/summaries
-Clear all generated summary files in `logs/summaries/`.
+**Response (200):**
+```json
+{ "message": "Failed payloads cleared." }
+```
+
+---
+
+## DELETE /clear-logs/summaries
+
+Delete all generated daily and weekly summary files under `logs/summary/`.
+
+**Response (200):**
+```json
+{ "message": "Cleared 14 summaries." }
+```
 
 ---
 
 ## Error Handling
-Failed payloads for `/detect` are saved to `logs/failed_payloads.jsonl` for later debugging. Errors return a 500 status code with detail:
+
+All endpoints return a `500` status with a detail message on unexpected errors:
 ```json
 { "detail": "error message" }
 ```
+
+Failed payloads for `/detect` and `/detect/batch` are also persisted to `logs/failed_payloads.jsonl` for later debugging.

@@ -2,7 +2,6 @@ import os
 import json
 import glob
 import argparse
-import time
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -275,36 +274,9 @@ def _aggregate_incident_types(daily_summaries: list[dict]) -> dict:
     }
 
 
-def weekly_summary_loop():
-    """Run weekly summary every Sunday at 00:00."""
-    print("[weekly] Loop mode: generating summary every Sunday at 00:00")
-
-    while True:
-        now = datetime.now()
-        days_until_sunday = (6 - now.weekday()) % 7
-        if days_until_sunday == 0 and now.hour >= 0:
-            days_until_sunday = 7
-        next_sunday = (now + timedelta(days=days_until_sunday)).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
-        sleep_secs = (next_sunday - now).total_seconds()
-        print(f"[weekly] Next summary in {sleep_secs/3600:.1f}h (at {next_sunday.strftime('%Y-%m-%d %H:%M:%S')})")
-        time.sleep(sleep_secs)
-
-        try:
-            weekly_summary()
-        except Exception as e:
-            print(f"[weekly] Error during summary generation: {e}")
-
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Weekly anomaly summary (aggregated from daily summaries)")
-    parser.add_argument("--loop", action="store_true", help="Run in loop mode (every Sunday at 00:00)")
+    parser = argparse.ArgumentParser(description="Weekly anomaly summary — run once to aggregate the last N daily summaries.")
     parser.add_argument("--days", type=int, default=7, help="Number of past daily summaries to aggregate (default: 7)")
     args = parser.parse_args()
-
-    if args.loop:
-        weekly_summary_loop()
-    else:
-        weekly_summary(days=args.days)
+    weekly_summary(days=args.days)
 

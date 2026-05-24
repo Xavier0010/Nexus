@@ -5,14 +5,19 @@ from typing import Optional, List
 from collections import defaultdict
 from datetime import datetime
 from groq import Groq
-from config import DAILY_SUMMARY_DIR, WEEKLY_SUMMARY_DIR, LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS
+from config import (
+    DAILY_SUMMARY_DIR, 
+    WEEKLY_SUMMARY_DIR, 
+    LLM_MODEL, 
+    LLM_TEMPERATURE, 
+    LLM_MAX_TOKENS
+)
 
 api_key = os.getenv("API_KEY")
 client = Groq(api_key=api_key) if api_key else None
 
 
 def get_latest_daily_summary():
-    """Utility for nexus.py /recommend endpoint — reads newest daily summary from disk."""
     if not DAILY_SUMMARY_DIR.exists():
         return None, None
 
@@ -29,7 +34,6 @@ def get_latest_daily_summary():
         return None, None
 
 def get_latest_weekly_summary():
-    """Utility for nexus.py /recommend endpoint — reads newest weekly summary from disk."""
     if not WEEKLY_SUMMARY_DIR.exists():
         return None, None
 
@@ -237,7 +241,6 @@ def aggregate_anomalies(log_data: list) -> dict:
 
 
 def generate_recommendation(summary_data: dict, summary_path: Optional[str] = None):
-    """Generate LLM recommendations from a summary dict and optionally patch them back into the file."""
     if not client:
         print("[engine] API_KEY not set — skipping recommendations.")
         return []
